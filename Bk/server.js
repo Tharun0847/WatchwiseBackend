@@ -13,15 +13,16 @@ var reviewRouter = require("./routes/review.router")
 var favoriteRouter = require("./routes/favorite.router")
 var comparisonRouter = require("./routes/comparison.router")
 var analyticsRouter = require("./routes/analytics.router")
+var mediaRouter = require("./routes/media.router");
 var connectDB = require("./db");
-// var multer = require("multer")
+
  
 app.use(cors({
   origin: 'https://watchwisefrontend.onrender.com', // Replace with your actual Render URL
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
-// app.use(express.static(__dirname + "/public"));
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
@@ -33,10 +34,11 @@ app.use("/reviews", reviewRouter)
 app.use("/favorites", favoriteRouter)
 app.use("/compare", comparisonRouter)
 app.use("/analytics", analyticsRouter)
+app.use("/media", mediaRouter)
 
 
 app.get("/", (req, res) => {
-  res.send("aagara babu");
+  res.send("Hello");
 });
 
 app.listen(process.env.PORT || 6767, () => {

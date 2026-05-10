@@ -1,11 +1,14 @@
-const router = require("express").Router()
+const router = require("express").Router();
+const { UserRegister, UserLogin, updateProfile, getAllUsers, getUserById } = require("../controllers/user.controller");
+const auth = require("../middleware/auth.middleware");
 
-const { UserRegister, UserLogin, updateProfile, getAllUsers } = require("../controllers/user.controller");
+// Public routes
+router.post("/register", UserRegister);
+router.post("/login", UserLogin);
 
-router
-  .post("/register", UserRegister)
-  .post("/login", UserLogin)
-  .get("/all", getAllUsers)
-  .put("/update-profile/:id", updateProfile)
+// Protected routes
+router.get("/all", auth, getAllUsers);
+router.get("/user/:id", auth, getUserById);
+router.put("/update-profile/:id", auth, updateProfile);
 
 module.exports = router;

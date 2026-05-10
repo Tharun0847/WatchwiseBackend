@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const favoriteController = require("../controllers/favorite.controller");
+const auth = require("../middleware/auth.middleware");
+
+router.use(auth);
 
 router.post("/add", favoriteController.addFavorite);
 router.get("/:userId", favoriteController.getFavorites);

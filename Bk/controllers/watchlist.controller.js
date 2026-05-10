@@ -3,7 +3,7 @@ const Watchlist = require("../model/watchlist.model");
 exports.addToWatchlist = async (req, res) => {
   try {
     const { userId, contentId, title, image, rating, genres, type, status } = req.body;
-    console.log("Adding to watchlist:", { userId, contentId, title, type, genres });
+    // console.log("Adding to watchlist:", { userId, contentId, title, type, genres });
 
     if (!userId || !contentId) {
       return res.status(400).json({ message: "userId and contentId are required" });
