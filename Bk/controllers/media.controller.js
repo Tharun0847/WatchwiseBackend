@@ -4,19 +4,23 @@ const https = require("https");
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const JIKAN_BASE_URL = "https://api.jikan.moe/v4";
 
+// Simple In-Memory Cache
+const cache = new Map();
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
 // High Reliability Agent
-// maxSockets: 1 forces Node to send requests one-by-one, avoiding TMDB's burst protection
+// Increased maxSockets to allow more concurrency while still being respectful to API limits
 const secureAgent = new https.Agent({ 
     keepAlive: true, 
     keepAliveMsecs: 1000,
-    maxSockets: 1, 
-    maxFreeSockets: 1,
-    timeout: 30000,
+    maxSockets: 10, 
+    maxFreeSockets: 10,
+    timeout: 15000,
     family: 4
 });
 
 const apiClient = axios.create({
-    timeout: 30000,
+    timeout: 15000,
     httpsAgent: secureAgent,
     headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -32,21 +36,31 @@ const getTmdbKey = () => {
 };
 
 /**
- * Enhanced request wrapper with queuing behavior and backoff
+ * Enhanced request wrapper with caching, queuing behavior and backoff
  */
-const makeRequest = async (url, retries = 3) => {
+const makeRequest = async (url, retries = 2) => {
+    // Check cache first
+    const cached = cache.get(url);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        return cached.data;
+    }
+
     try {
         // Small initial delay to prevent instant bursts when called in parallel
         await new Promise(r => setTimeout(r, Math.random() * 200));
         
         const response = await apiClient.get(url);
+        
+        // Save to cache on success
+        cache.set(url, { data: response.data, timestamp: Date.now() });
+        
         return response.data;
     } catch (error) {
         const isNetworkError = !error.response && 
             (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED');
         
         if (isNetworkError && retries > 0) {
-            const delay = (Math.pow(2, 3 - retries) * 1500) + (Math.random() * 1000);
+            const delay = (Math.pow(2, 2 - retries) * 1000) + (Math.random() * 500);
             console.warn(`⚠️ [${error.code}] Retrying in ${Math.round(delay)}ms...`);
             await new Promise(r => setTimeout(r, delay));
             return makeRequest(url, retries - 1);
