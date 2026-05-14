@@ -1,33 +1,48 @@
 const nodemailer = require('nodemailer');
 
 const sendEmail = async (options) => {
+  // 1. Validation
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    const missing = [];
-    if (!process.env.EMAIL_USER) missing.push("EMAIL_USER");
-    if (!process.env.EMAIL_PASS) missing.push("EMAIL_PASS");
-    throw new Error(`Email credentials missing: ${missing.join(', ')}`);
+    throw new Error("Email credentials (EMAIL_USER/EMAIL_PASS) are not set in environment variables.");
   }
 
-  // 1. Force use Port 465 for SSL/TLS (More stable on Render)
-  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-  const port = 465; // Changed from 587 to 465
+  const isGmail = process.env.EMAIL_HOST?.includes('gmail') || process.env.EMAIL_USER?.includes('gmail');
+
+  // 2. Transporter Configuration
+  let config;
+  if (isGmail) {
+    // Gmail-specific "Magic" configuration
+    config = {
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      }
+    };
+  } else {
+    // Generic SMTP
+    config = {
+      host: process.env.EMAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT) || 465,
+      secure: process.env.EMAIL_PORT == 465 || !process.env.EMAIL_PORT,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      }
+    };
+  }
 
   const transporter = nodemailer.createTransport({
-    host: host,
-    port: port,
-    secure: true, // true for 465, false for other ports
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
+    ...config,
+    pool: true, // Use connection pooling
+    maxConnections: 1,
+    maxMessages: 5,
     tls: {
-      // Essential for cloud providers to prevent handshake failures
-      rejectUnauthorized: false,
-      minVersion: 'TLSv1.2'
+      rejectUnauthorized: false // Often required on cloud hosting
     },
-    connectionTimeout: 20000, // Increased to 20 seconds
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
   });
 
   const mailOptions = {
@@ -39,22 +54,27 @@ const sendEmail = async (options) => {
   };
 
   try {
+    console.log(`Attempting to send email to ${options.email} via ${isGmail ? 'Gmail Service' : 'SMTP'}...`);
     const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent successfully:", info.messageId);
+    console.log("Email sent successfully! Message ID:", info.messageId);
     return info;
   } catch (error) {
-    console.error("Nodemailer Error Details:", {
-      message: error.message,
+    console.error("Detailed Nodemailer Error:", {
       code: error.code,
+      message: error.message,
       command: error.command,
-      response: error.response
+      response: error.response,
+      stack: error.stack
     });
-    
-    // Provide a more helpful error for common timeout issues
+
     if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
-      throw new Error("The connection to the email server timed out. This is often caused by a firewall or network restriction on the hosting provider.");
+      throw new Error("Connection Timeout: The server took too long to respond. This is usually a network block by the hosting provider (Render) or the SMTP provider (Gmail). Try using Port 465 or verify your App Password.");
     }
-    
+
+    if (error.message.includes('Invalid login') || error.code === 'EAUTH') {
+      throw new Error("Authentication Failed: Your EMAIL_USER or EMAIL_PASS (App Password) is incorrect.");
+    }
+
     throw error;
   }
 };
