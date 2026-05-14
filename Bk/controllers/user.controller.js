@@ -41,7 +41,12 @@ const UserRegister = async (req, res) => {
             res.send({ msg: "OTP sent to email. Please verify to complete registration." });
         } catch (emailErr) {
             console.error("Email Error:", emailErr);
-            res.status(500).send({ msg: "Failed to send OTP. Please try again." });
+            // Temporarily adding emailErr.message for production debugging
+            res.status(500).send({ 
+                msg: "Failed to send OTP. Please try again.",
+                error: emailErr.message,
+                details: "Check your Render Environment Variables (EMAIL_USER, EMAIL_PASS, etc.)"
+            });
         }
 
     } catch (err) {
