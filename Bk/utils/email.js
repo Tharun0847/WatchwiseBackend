@@ -1,41 +1,33 @@
 const nodemailer = require('nodemailer');
 
 const sendEmail = async (options) => {
-  // 1. Validation check for credentials
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     const missing = [];
     if (!process.env.EMAIL_USER) missing.push("EMAIL_USER");
     if (!process.env.EMAIL_PASS) missing.push("EMAIL_PASS");
-    throw new Error(`Email credentials missing in Environment: ${missing.join(', ')}`);
+    throw new Error(`Email credentials missing: ${missing.join(', ')}`);
   }
 
-  let transporterConfig = {
+  // 1. Force use Port 465 for SSL/TLS (More stable on Render)
+  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+  const port = 465; // Changed from 587 to 465
+
+  const transporter = nodemailer.createTransport({
+    host: host,
+    port: port,
+    secure: true, // true for 465, false for other ports
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-  };
-
-  // 2. Specialized Gmail handling or generic SMTP
-  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-  
-  if (host.includes('gmail')) {
-    transporterConfig.service = 'gmail';
-  } else {
-    transporterConfig.host = host;
-    transporterConfig.port = parseInt(process.env.EMAIL_PORT) || 587;
-    transporterConfig.secure = transporterConfig.port === 465;
-  }
-
-  const transporter = nodemailer.createTransport({
-    ...transporterConfig,
     tls: {
-      // Must be false for many shared hosting/cloud environments
-      rejectUnauthorized: false 
+      // Essential for cloud providers to prevent handshake failures
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2'
     },
-    connectionTimeout: 15000, 
-    greetingTimeout: 15000,
-    socketTimeout: 15000,
+    connectionTimeout: 20000, // Increased to 20 seconds
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
   });
 
   const mailOptions = {
@@ -57,7 +49,13 @@ const sendEmail = async (options) => {
       command: error.command,
       response: error.response
     });
-    throw error; 
+    
+    // Provide a more helpful error for common timeout issues
+    if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
+      throw new Error("The connection to the email server timed out. This is often caused by a firewall or network restriction on the hosting provider.");
+    }
+    
+    throw error;
   }
 };
 
