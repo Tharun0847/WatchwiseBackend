@@ -41,11 +41,10 @@ const UserRegister = async (req, res) => {
             res.send({ msg: "OTP sent to email. Please verify to complete registration." });
         } catch (emailErr) {
             console.error("Email Error:", emailErr);
-            // Temporarily adding emailErr.message for production debugging
+            // Put the error directly in the message so it shows on the UI
             res.status(500).send({ 
-                msg: "Failed to send OTP. Please try again.",
-                error: emailErr.message,
-                details: "Check your Render Environment Variables (EMAIL_USER, EMAIL_PASS, etc.)"
+                msg: `Email Error: ${emailErr.message}. Verify your Render Environment Variables.`,
+                error: emailErr.message
             });
         }
 
