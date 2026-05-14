@@ -18,17 +18,7 @@ const analyticsRouter = require("./routes/analytics.router");
 const mediaRouter = require("./routes/media.router");
 const connectDB = require("./db");
 
-// Global Rate Limiter: 100 requests per 15 minutes
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: "Too many requests from this IP, please try again after 15 minutes"
-});
-
-app.use(limiter);
-
+// 1. CORS MUST BE FIRST (to ensure headers are present even on errors)
 const allowedOrigins = [
   'https://watchwisefrontend.onrender.com',
   'http://localhost:5173',
@@ -46,6 +36,17 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
+
+// 2. Global Rate Limiter (Increased limit to 500)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many requests from this IP, please try again after 15 minutes"
+});
+
+app.use(limiter);
 
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: false }));
