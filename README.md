@@ -119,14 +119,6 @@ To optimize performance and handle external API limits, the server implements:
 
 ---
 
-## 🗺️ Future Roadmap
-- [ ] **Redis Integration:** Move from in-memory cache to Redis for better persistence and scalability.
-- [ ] **WebSockets:** Implement real-time notifications for social interactions.
-- [ ] **Log Management:** Integrate a logging service like Winston or Morgan for better production monitoring.
-- [ ] **Dockerization:** Add Docker support for easy deployment and environment consistency.
-
----
-
 ## 🤝 Contributing
 Feel free to submit issues or pull requests to improve the platform!
 
@@ -179,3 +171,11 @@ The system uses **MongoDB** with the following core entities:
 | `TMDB_API_KEY` | API key from The Movie Database | `abc123...` |
 | `EMAIL_USER` | Gmail/SMTP address for OTPs | `app@gmail.com` |
 | `EMAIL_PASS` | SMTP App Password | `xxxx xxxx xxxx xxxx` |
+
+---
+
+## 🗺️ Future Roadmap
+- [ ] **Redis Integration:** Move from in-memory cache to Redis for better persistence and scalability.
+- [ ] **WebSockets:** Implement real-time notifications for social interactions.
+- [ ] **Log Management:** Integrate a logging service like Winston or Morgan for better production monitoring.
+- [ ] **Dockerization:** Add Docker support for easy deployment and environment consistency.
