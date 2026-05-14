@@ -1,21 +1,19 @@
-var UserModel = require("../model/user.model");
-var PendingUserModel = require("../model/pendingUser.model");
-var jwt = require("jsonwebtoken");
-var bcrypt = require("bcryptjs");
-var crypto = require("crypto");
-var sendEmail = require("../utils/email");
+const UserModel = require("../model/user.model");
+const PendingUserModel = require("../model/pendingUser.model");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const sendEmail = require("../utils/email");
 
-var UserRegister = async (req, res) => {
+const UserRegister = async (req, res) => {
     try {
         const { name, email, password } = req.body;
         
-        // 1. Check if email already exists in main collection
         const existingEmail = await UserModel.findOne({ email });
         if (existingEmail) {
             return res.status(400).send({ msg: "User already exists with this email" });
         }
 
-        // 2. Check if username already exists in main collection
         const existingUsername = await UserModel.findOne({ name });
         if (existingUsername) {
             return res.status(400).send({ msg: "Username already exists. Please choose another one." });
@@ -24,18 +22,15 @@ var UserRegister = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         
-        // Generate OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        const otpExpires = Date.now() + 10 * 60 * 1000;
 
-        // 3. Save to PendingUser collection (Upsert if same email exists)
         await PendingUserModel.findOneAndUpdate(
             { email },
             { name, email, password: hashedPassword, otp, otpExpires, createdAt: Date.now() },
             { upsert: true, new: true }
         );
 
-        // Send OTP via Email
         try {
             await sendEmail({
                 email: email,
@@ -55,11 +50,10 @@ var UserRegister = async (req, res) => {
     }
 }
 
-var verifyOTP = async (req, res) => {
+const verifyOTP = async (req, res) => {
     try {
         const { email, otp } = req.body;
         
-        // Find in PendingUser collection
         const pendingUser = await PendingUserModel.findOne({ 
             email, 
             otp, 
@@ -70,7 +64,6 @@ var verifyOTP = async (req, res) => {
             return res.status(400).send({ msg: "Invalid or expired OTP" });
         }
 
-        // 4. Promote to main UserModel
         const newUser = new UserModel({
             name: pendingUser.name,
             email: pendingUser.email,
@@ -80,8 +73,6 @@ var verifyOTP = async (req, res) => {
         });
 
         await newUser.save();
-
-        // 5. Remove from PendingUser
         await PendingUserModel.deleteOne({ _id: pendingUser._id });
 
         res.send({ msg: "Email verified successfully. Registration complete." });
@@ -91,11 +82,9 @@ var verifyOTP = async (req, res) => {
     }
 };
 
-var resendOTP = async (req, res) => {
+const resendOTP = async (req, res) => {
     try {
         const { email } = req.body;
-        
-        // Find in PendingUser
         const pendingUser = await PendingUserModel.findOne({ email });
 
         if (!pendingUser) {
@@ -105,7 +94,7 @@ var resendOTP = async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         pendingUser.otp = otp;
         pendingUser.otpExpires = Date.now() + 10 * 60 * 1000;
-        pendingUser.createdAt = Date.now(); // Reset the 10-minute deletion timer
+        pendingUser.createdAt = Date.now();
         await pendingUser.save();
 
         await sendEmail({
@@ -121,7 +110,7 @@ var resendOTP = async (req, res) => {
     }
 };
 
-var forgotPassword = async (req, res) => {
+const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
         const user = await UserModel.findOne({ email });
@@ -130,10 +119,9 @@ var forgotPassword = async (req, res) => {
             return res.status(404).send({ msg: "No user with that email" });
         }
 
-        // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         user.resetPasswordToken = crypto.createHash('sha256').update(otp).digest('hex');
-        user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
 
         await user.save();
 
@@ -156,7 +144,7 @@ var forgotPassword = async (req, res) => {
     }
 };
 
-var resetPassword = async (req, res) => {
+const resetPassword = async (req, res) => {
     try {
         const { token } = req.params;
         const { password } = req.body;
@@ -184,23 +172,19 @@ var resetPassword = async (req, res) => {
     }
 };
 
-var UserLogin = async (req, res) => {
+const UserLogin = async (req, res) => {
     try {
         const user = await UserModel.findOne({ name: req.body.username });
 
         if (user) {
-            // 1. Try secure bcrypt comparison first
             let isMatch = false;
             try {
                 isMatch = await bcrypt.compare(req.body.password, user.password);
             } catch (e) {
-                // If it's not a valid hash, it will throw an error
                 isMatch = false;
             }
 
-            // 2. Fallback for legacy plain-text passwords
             if (!isMatch && req.body.password === user.password) {
-                console.log(`Migrating legacy user: ${user.name}`);
                 const salt = await bcrypt.genSalt(10);
                 user.password = await bcrypt.hash(req.body.password, salt);
                 await user.save();
@@ -208,10 +192,22 @@ var UserLogin = async (req, res) => {
             }
 
             if (isMatch) {
-                var token = jwt.sign({ username: req.body.username }, process.env.JWT_SECRET);
+                const token = jwt.sign(
+                    { username: req.body.username, id: user._id }, 
+                    process.env.JWT_SECRET,
+                    { expiresIn: '7d' }
+                );
+
+                // Set HttpOnly Cookie
+                res.cookie("token", token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === "production",
+                    sameSite: "lax", // Required for cross-origin if not same domain
+                    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+                });
+
                 res.send({ 
                   msg: "loginsuccess", 
-                  token, 
                   username: req.body.username, 
                   id: user._id, 
                   email: user.email,
@@ -219,10 +215,10 @@ var UserLogin = async (req, res) => {
                   preferences: user.preferences 
                 });
             } else {
-                res.send({ msg: "loginfailed" });
+                res.status(401).send({ msg: "loginfailed" });
             }
         } else {
-            res.send({ msg: "loginfailed" });
+            res.status(401).send({ msg: "loginfailed" });
         }
     } catch (err) {
         console.error("Login Error:", err);
@@ -230,7 +226,12 @@ var UserLogin = async (req, res) => {
     }
 };
 
-var updateProfile = async (req, res) => {
+const logout = (req, res) => {
+    res.clearCookie("token");
+    res.send({ msg: "loggedout" });
+};
+
+const updateProfile = async (req, res) => {
   const { id } = req.params;
   const { name, email, oldPassword, newPassword, preferences } = req.body;
 
@@ -240,7 +241,6 @@ var updateProfile = async (req, res) => {
       return res.status(404).send({ msg: "User not found" });
     }
 
-    // If attempting to change password
     if (newPassword) {
       if (!oldPassword) {
         return res.status(400).send({ msg: "Previous password is required to set a new one" });
@@ -294,21 +294,18 @@ const getUserById = (req, res) => {
   });
 };
 
-var changeEmail = async (req, res) => {
+const changeEmail = async (req, res) => {
     try {
         const { oldEmail, newEmail } = req.body;
         
-        // 1. Check if new email is already in use in main collection
         const existingUser = await UserModel.findOne({ email: newEmail });
         if (existingUser) {
             return res.status(400).send({ msg: "This email is already registered to another account" });
         }
 
-        // 2. Check if user is in main collection
         let user = await UserModel.findOne({ email: oldEmail });
         let isPending = false;
 
-        // 3. If not in main, check Pending collection
         if (!user) {
             user = await PendingUserModel.findOne({ email: oldEmail });
             isPending = true;
@@ -318,18 +315,15 @@ var changeEmail = async (req, res) => {
             return res.status(404).send({ msg: "User not found" });
         }
 
-        // Generate new OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
         if (isPending) {
-            // Update Pending user
             user.email = newEmail;
             user.otp = otp;
             user.otpExpires = Date.now() + 10 * 60 * 1000;
-            user.createdAt = Date.now(); // Reset TTL timer
+            user.createdAt = Date.now();
             await user.save();
         } else {
-            // Update main user
             user.email = newEmail;
             user.otp = otp;
             user.otpExpires = Date.now() + 10 * 60 * 1000;
@@ -350,7 +344,7 @@ var changeEmail = async (req, res) => {
     }
 };
 
-var verifyResetOTP = async (req, res) => {
+const verifyResetOTP = async (req, res) => {
     try {
         const { email, otp } = req.body;
         const hashedToken = crypto.createHash('sha256').update(otp).digest('hex');
@@ -371,4 +365,4 @@ var verifyResetOTP = async (req, res) => {
     }
 };
 
-module.exports = { UserRegister, UserLogin, updateProfile, getAllUsers, getUserById, verifyOTP, resendOTP, forgotPassword, resetPassword, changeEmail, verifyResetOTP };
+module.exports = { UserRegister, UserLogin, logout, updateProfile, getAllUsers, getUserById, verifyOTP, resendOTP, forgotPassword, resetPassword, changeEmail, verifyResetOTP };

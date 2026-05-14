@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { 
     UserRegister, 
     UserLogin, 
+    logout,
     updateProfile, 
     getAllUsers, 
     getUserById,
@@ -17,6 +18,7 @@ const auth = require("../middleware/auth.middleware");
 // Public routes
 router.post("/register", UserRegister);
 router.post("/login", UserLogin);
+router.post("/logout", logout);
 router.post("/verify-otp", verifyOTP);
 router.post("/resend-otp", resendOTP);
 router.post("/forgot-password", forgotPassword);

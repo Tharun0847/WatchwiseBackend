@@ -16,6 +16,7 @@ router.get("/anime/:id/recommendations", mediaController.getAnimeRecommendations
 router.get("/movie/popular", mediaController.getPopularMovies);
 router.get("/movie/search", mediaController.searchMovies);
 router.get("/movie/genres", mediaController.getMovieGenres);
+router.get("/movie/languages", mediaController.getMovieLanguages);
 router.get("/movie/by-genre", mediaController.getMoviesByGenre);
 router.get("/movie/:id", mediaController.getMovieDetails);
 router.get("/movie/:id/recommendations", mediaController.getMovieRecommendations);
