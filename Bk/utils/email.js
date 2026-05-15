@@ -11,11 +11,12 @@ const sendEmail = async (options) => {
   // 2. Transporter Configuration
   let config;
   if (isGmail) {
-    // Gmail-specific configuration forced to IPv4
+    // Gmail-specific configuration using Port 587 (STARTTLS)
+    // Port 587 is often more reliable on Render than 465
     config = {
       host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
+      port: 587,
+      secure: false, // Use STARTTLS
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -25,8 +26,8 @@ const sendEmail = async (options) => {
     // Generic SMTP
     config = {
       host: process.env.EMAIL_HOST,
-      port: parseInt(process.env.EMAIL_PORT) || 465,
-      secure: process.env.EMAIL_PORT == 465 || !process.env.EMAIL_PORT,
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_PORT == 465,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -36,16 +37,14 @@ const sendEmail = async (options) => {
 
   const transporter = nodemailer.createTransport({
     ...config,
-    family: 4, // FORCE IPv4 - This resolves ENETUNREACH issues on Render
-    pool: true, // Use connection pooling
-    maxConnections: 1,
-    maxMessages: 5,
+    family: 4, // FORCE IPv4 - Prevents ENETUNREACH issues on Render
     tls: {
-      rejectUnauthorized: false // Often required on cloud hosting
+      rejectUnauthorized: false, // Often required on cloud hosting
+      minVersion: 'TLSv1.2'
     },
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
+    connectionTimeout: 15000, 
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
 
   const mailOptions = {
@@ -57,7 +56,7 @@ const sendEmail = async (options) => {
   };
 
   try {
-    console.log(`Attempting to send email to ${options.email} via ${isGmail ? 'Gmail Service' : 'SMTP'}...`);
+    console.log(`Attempting to send email to ${options.email} via ${isGmail ? 'Gmail Service' : 'SMTP'} on port ${config.port}...`);
     const info = await transporter.sendMail(mailOptions);
     console.log("Email sent successfully! Message ID:", info.messageId);
     return info;
@@ -71,7 +70,7 @@ const sendEmail = async (options) => {
     });
 
     if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
-      throw new Error("Connection Timeout: The server took too long to respond. This is usually a network block by the hosting provider (Render) or the SMTP provider (Gmail). Try using Port 465 or verify your App Password.");
+      throw new Error(`Connection Timeout: The server took too long to respond on port ${config.port}. This is usually a network block by Render. Try verifying if Port 587 is allowed.`);
     }
 
     if (error.message.includes('Invalid login') || error.code === 'EAUTH') {
