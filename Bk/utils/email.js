@@ -11,9 +11,11 @@ const sendEmail = async (options) => {
   // 2. Transporter Configuration
   let config;
   if (isGmail) {
-    // Gmail-specific "Magic" configuration
+    // Gmail-specific configuration forced to IPv4
     config = {
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -34,6 +36,7 @@ const sendEmail = async (options) => {
 
   const transporter = nodemailer.createTransport({
     ...config,
+    family: 4, // FORCE IPv4 - This resolves ENETUNREACH issues on Render
     pool: true, // Use connection pooling
     maxConnections: 1,
     maxMessages: 5,
