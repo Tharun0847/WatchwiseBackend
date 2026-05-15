@@ -38,13 +38,15 @@ const sendEmail = async (options) => {
   const transporter = nodemailer.createTransport({
     ...config,
     family: 4, // FORCE IPv4 - Prevents ENETUNREACH issues on Render
+    logger: true, // Prints the SMTP log to console
+    debug: true,  // Includes SMTP traffic in the logs
     tls: {
       rejectUnauthorized: false, // Often required on cloud hosting
       minVersion: 'TLSv1.2'
     },
-    connectionTimeout: 15000, 
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
+    connectionTimeout: 20000, 
+    greetingTimeout: 20000,
+    socketTimeout: 25000,
   });
 
   const mailOptions = {
