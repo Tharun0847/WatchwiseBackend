@@ -217,6 +217,7 @@ const UserLogin = async (req, res) => {
                   username: req.body.username, 
                   id: user._id, 
                   email: user.email,
+                  profilePic: user.profilePic,
                   isVerified: user.isVerified,
                   preferences: user.preferences 
                 });
@@ -244,7 +245,7 @@ const logout = (req, res) => {
 
 const updateProfile = async (req, res) => {
   const { id } = req.params;
-  const { name, email, oldPassword, newPassword, preferences } = req.body;
+  const { name, email, oldPassword, newPassword, preferences, profilePic } = req.body;
 
   try {
     const user = await UserModel.findById(id);
@@ -269,6 +270,7 @@ const updateProfile = async (req, res) => {
     if (name) user.name = name;
     if (email) user.email = email;
     if (preferences) user.preferences = preferences;
+    if (profilePic !== undefined) user.profilePic = profilePic;
 
     const updatedUser = await user.save();
     res.send({ 
@@ -277,7 +279,8 @@ const updateProfile = async (req, res) => {
         username: updatedUser.name, 
         email: updatedUser.email, 
         id: updatedUser._id,
-        preferences: updatedUser.preferences
+        preferences: updatedUser.preferences,
+        profilePic: updatedUser.profilePic
       } 
     });
   } catch (err) {
